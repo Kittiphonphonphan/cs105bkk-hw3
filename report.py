@@ -12,28 +12,56 @@ from walks import Walk, good_walks, read_rows
 
 def steps_per_day(walks: Iterable[Walk]) -> dict[str, int]:
     """Total steps for each date, with the dates in order, earliest first."""
-    raise NotImplementedError("core: add up the steps for each date, earliest date first")
+    totals: dict[str, int] = {}
+    for walk in walks:
+        totals[walk.date] = totals.get(walk.date, 0) + walk.steps
+    return {date: totals[date] for date in sorted(totals)}
 
 
 def best_day(totals: dict[str, int]) -> str:
     """The date with the most steps. On a tie, the earliest of those dates."""
-    raise NotImplementedError("core: the date with the most steps, the earliest on a tie")
+    if not totals:
+        raise ValueError("no days provided")
+    return max(sorted(totals), key=lambda date: totals[date])
 
 
 @contextmanager
 def saved_safely(path: Path) -> Iterator[TextIO]:
     """Write to a new file, and put it in place of `path` only if the with block ends without an error."""
-    raise NotImplementedError("core: write to a .tmp file, then replace path only if nothing failed")
+    tmp_path = path.with_name(path.name + ".tmp")
+    file = open(tmp_path, "w", encoding="utf-8")
+    try:
+        yield file
+    except Exception:
+        file.close()
+        tmp_path.unlink(missing_ok=True)
+        raise
+    else:
+        file.close()
+        tmp_path.replace(path)
 
 
 def write_report(path: Path, walks: Iterable[Walk]) -> dict:
     """Save the week's report to a JSON file, and return it as a dict."""
-    raise NotImplementedError("core: build the report dict, save it with saved_safely, return it")
+    days = steps_per_day(walks)
+    top_day = best_day(days)
+    report = {
+        "total_steps": sum(days.values()),
+        "best_day": top_day,
+        "days": days,
+    }
+    with saved_safely(path) as file:
+        json.dump(report, file, indent=2)
+    return report
 
 
 def load_report(path: Path) -> dict | None:
     """The report saved last time, or None if there is no file or it is not valid JSON."""
-    raise NotImplementedError("core: load the saved report, or None if it is missing or broken")
+    try:
+        with open(path, encoding="utf-8") as file:
+            return json.load(file)
+    except (FileNotFoundError, json.JSONDecodeError):
+        return None
 
 
 if __name__ == "__main__":
